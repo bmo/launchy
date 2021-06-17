@@ -23,7 +23,6 @@ module Launchy::Detect
     def self.detect
       host_os_family = Launchy::Detect::HostOsFamily.detect
       ruby_engine    = Launchy::Detect::RubyEngine.detect
-
       return Windows.new if host_os_family.windows?
       if ruby_engine.jruby? then
         return Jruby.new
@@ -128,7 +127,7 @@ module Launchy::Detect
 
       private
 
-      # attaching to a StringIO instead of reopening so we don't loose the
+      # attaching to a StringIO instead of reopening so we don't lose the
       # STDERR, needed for exec_or_raise.
       def close_file_descriptors
         $stdin.reopen( "/dev/null")
@@ -141,6 +140,25 @@ module Launchy::Detect
       end
 
       def exec_or_raise( cmd, *args )
+        if cmd.include?(" ") # spaces are allowable in paths, but there needs to be some quoting
+          cmd = "\"#{cmd}\""
+        end
+        if Launchy::Detect::HostOsFamily.detect.nix? && Launchy::Detect::HostOsFamily.wsl?
+
+            # turn the wsl path into windows paths
+          w_args = args.map do |b|
+            b.map do |a|
+              if (m = a.match(/(file:\/\/\/)(.*)/))
+                wsl_cmd = "wslpath -w \'#{m[2]}\'"
+                xlated_f = `#{wsl_cmd}`.chomp
+                xlated_f.empty? ? a : "#{m[1]}#{xlated_f}"
+              else
+                a
+              end
+            end
+          end
+          args = w_args
+        end
         exec( *shell_commands( cmd, *args ))
       rescue Exception => e
         $stderr = @saved_stderr

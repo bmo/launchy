@@ -23,6 +23,9 @@ module Launchy::Detect
       def darwin?()  self == Darwin;  end
       def nix?()     self == Nix;     end
       def cygwin?()  self == Cygwin;  end
+      def wsl?()
+        File.read('/proc/version').match(/^Linux.*Microsoft/)
+      end
     end
 
 
